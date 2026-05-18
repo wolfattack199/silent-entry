@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "bestTime": null,
+  "missionsCompleted": 0,
+  "civiliansRescuedTotal": 0,
+  "intelCollectedTotal": 0,
+  "nightmareUnlocked": false,
+  "difficulty": "Standard",
+  "graphics": "Medium",
+  "sensitivity": 1.0,
+  "flashlightIntensity": 1.0,
+  "flashlightDefaultOn": true,
+  "flashlightColor": "#ffffff",
+  "screenShake": true,
+  "objectiveMarkers": true
+}

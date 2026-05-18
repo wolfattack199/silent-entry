@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Silent Entry</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Three.js render target -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Vignette and fog overlay (CSS-only, no shader cost) -->
+  <div id="vignette"></div>
+
+  <!-- ============================ HUD ============================ -->
+  <div id="hud" class="hidden">
+    <div id="crosshair">
+      <div class="ch ch-h"></div>
+      <div class="ch ch-v"></div>
+      <div class="ch-dot"></div>
+    </div>
+
+    <div id="topBar">
+      <div class="hud-block">
+        <div class="hud-label">Mission Time</div>
+        <div id="missionTimer" class="hud-value">00:00.0</div>
+      </div>
+      <div class="hud-block">
+        <div class="hud-label">Civilians</div>
+        <div id="civCounter" class="hud-value">0 / 0</div>
+      </div>
+      <div class="hud-block">
+        <div class="hud-label">Intel</div>
+        <div id="intelCounter" class="hud-value">0 / 0</div>
+      </div>
+      <div class="hud-block">
+        <div class="hud-label">Mode</div>
+        <div id="modeLabel" class="hud-value">Standard</div>
+      </div>
+    </div>
+
+    <div id="objectiveStrip">
+      <span class="dot-pulse"></span>
+      <span id="objectiveText">Secure all civilians and reach extraction.</span>
+    </div>
+
+    <div id="stanceStrip">
+      <span id="stanceLabel">STAND</span> &middot;
+      <span id="lightLabel">LIGHT OFF</span>
+    </div>
+
+    <div id="detectionWrap">
+      <div id="detectionLabel">DETECTION</div>
+      <div id="detectionBar"><div id="detectionFill"></div></div>
+      <div id="alertFlash"></div>
+    </div>
+
+    <div id="interactPrompt" class="hidden">
+      <kbd>E</kbd> <span id="interactText">Interact</span>
+    </div>
+  </div>
+
+  <!-- ============================ Objective Map (Tab) ============================ -->
+  <div id="mapOverlay" class="hidden">
+    <div class="map-panel">
+      <h2>Floor Plan</h2>
+      <canvas id="minimap" width="520" height="420"></canvas>
+      <div class="map-legend">
+        <span><i class="sw sw-player"></i> You</span>
+        <span><i class="sw sw-civ"></i> Civilian</span>
+        <span><i class="sw sw-int"></i> Intel</span>
+        <span><i class="sw sw-ext"></i> Extraction</span>
+        <span><i class="sw sw-hostile"></i> Last seen hostile</span>
+      </div>
+      <p class="hint">Hold <kbd>Tab</kbd> to view.</p>
+    </div>
+  </div>
+
+  <!-- ============================ Main Menu ============================ -->
+  <div id="mainMenu" class="screen">
+    <div class="brand">
+      <div class="brand-tag">TACTICAL OPS // CLASSIFIED</div>
+      <h1 class="brand-title">SILENT<span>ENTRY</span></h1>
+      <div class="brand-sub">Low-visibility room clearing &middot; Civilian rescue</div>
+    </div>
+
+    <nav class="menu-nav">
+      <button data-screen="missionSelect" class="primary">Start Mission</button>
+      <button data-screen="settingsMenu">Settings</button>
+      <button data-screen="howToPlay">How to Play</button>
+      <button data-screen="saveMenu">Load / Save</button>
+      <button data-screen="creditsMenu">Credits</button>
+    </nav>
+
+    <div class="menu-stats">
+      <div><span class="ms-k">Best Time</span><span id="statBestTime" class="ms-v">—</span></div>
+      <div><span class="ms-k">Missions</span><span id="statMissions" class="ms-v">0</span></div>
+      <div><span class="ms-k">Rescued</span><span id="statRescued" class="ms-v">0</span></div>
+      <div><span class="ms-k">Nightmare</span><span id="statNightmare" class="ms-v">Locked</span></div>
+    </div>
+
+    <div class="menu-footer">v1.0 &middot; runs offline &middot; no install required</div>
+  </div>
+
+  <!-- ============================ Mission Select ============================ -->
+  <div id="missionSelect" class="screen hidden">
+    <h2 class="screen-title">Select Operation</h2>
+    <div class="mission-grid">
+      <div class="mission-card" data-mode="standard">
+        <h3>Standard Mission</h3>
+        <p>Secure every civilian and reach extraction without being detected.</p>
+        <button class="primary play-btn" data-mode="standard">Deploy</button>
+      </div>
+      <div class="mission-card" data-mode="timed">
+        <h3>Timed Challenge</h3>
+        <p>Clear the building as fast as possible. Best time is saved.</p>
+        <button class="primary play-btn" data-mode="timed">Deploy</button>
+      </div>
+      <div class="mission-card locked" data-mode="nightmare" id="nightmareCard">
+        <h3>Nightmare</h3>
+        <p>Pitch dark, faster detection, no objective markers. Complete one mission to unlock.</p>
+        <button class="primary play-btn" data-mode="nightmare" disabled>Locked</button>
+      </div>
+    </div>
+    <button class="back-btn" data-screen="mainMenu">Back</button>
+  </div>
+
+  <!-- ============================ Settings ============================ -->
+  <div id="settingsMenu" class="screen hidden">
+    <h2 class="screen-title">Settings</h2>
+    <div class="settings-grid">
+      <label>Mouse Sensitivity <span id="sensVal">1.00</span>
+        <input type="range" id="sensSlider" min="0.2" max="3.0" step="0.05" value="1.0" />
+      </label>
+      <label>Flashlight Intensity <span id="flashVal">1.00</span>
+        <input type="range" id="flashSlider" min="0.3" max="2.0" step="0.05" value="1.0" />
+      </label>
+      <label>Difficulty
+        <select id="difficultySel">
+          <option>Rookie</option>
+          <option>Standard</option>
+          <option>Veteran</option>
+          <option>Nightmare</option>
+        </select>
+      </label>
+      <label>Graphics Quality
+        <select id="graphicsSel">
+          <option>Low</option>
+          <option>Medium</option>
+          <option>High</option>
+        </select>
+      </label>
+      <label class="row">Screen Shake
+        <input type="checkbox" id="shakeChk" checked />
+      </label>
+      <label class="row">Objective Markers
+        <input type="checkbox" id="markersChk" checked />
+      </label>
+      <label class="row">Flashlight Default On
+        <input type="checkbox" id="flashlightDefaultChk" checked />
+      </label>
+    </div>
+    <div class="row-buttons">
+      <button id="resetSettingsBtn">Reset Settings</button>
+      <button class="primary" data-screen="mainMenu">Save &amp; Back</button>
+    </div>
+  </div>
+
+  <!-- ============================ How To Play ============================ -->
+  <div id="howToPlay" class="screen hidden">
+    <h2 class="screen-title">How to Play</h2>
+    <div class="how-grid">
+      <div>
+        <h3>Movement</h3>
+        <ul>
+          <li><kbd>W A S D</kbd> &mdash; move</li>
+          <li><kbd>Shift</kbd> &mdash; slow walk (quiet)</li>
+          <li><kbd>Ctrl</kbd> &mdash; crouch (lower profile)</li>
+          <li><kbd>Mouse</kbd> &mdash; look</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Interact</h3>
+        <ul>
+          <li><kbd>E</kbd> or <kbd>Left Click</kbd> &mdash; doors / secure civilian / collect intel</li>
+          <li><kbd>F</kbd> or <kbd>Right Click</kbd> &mdash; toggle flashlight</li>
+          <li><kbd>Tab</kbd> &mdash; floor plan</li>
+          <li><kbd>Esc</kbd> &mdash; pause</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Tactics</h3>
+        <ul>
+          <li>Hostiles see in a cone. Stay out of line-of-sight.</li>
+          <li>Crouch + slow walk to drop detection faster.</li>
+          <li>Light gives you visibility but reveals you.</li>
+          <li>Close doors behind you to break sight.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Win &amp; Lose</h3>
+        <ul>
+          <li>Win: secure all civilians, reach extraction.</li>
+          <li>Bonus: collect intel folders.</li>
+          <li>Lose: detection bar fills to 100%.</li>
+        </ul>
+      </div>
+    </div>
+    <button class="back-btn" data-screen="mainMenu">Back</button>
+  </div>
+
+  <!-- ============================ Save / Load ============================ -->
+  <div id="saveMenu" class="screen hidden">
+    <h2 class="screen-title">Save Data</h2>
+    <div class="save-panel">
+      <div class="save-readout">
+        <div><span>Best Time</span><b id="sBestTime">—</b></div>
+        <div><span>Missions Completed</span><b id="sMissions">0</b></div>
+        <div><span>Civilians Rescued</span><b id="sRescued">0</b></div>
+        <div><span>Difficulty</span><b id="sDifficulty">Standard</b></div>
+        <div><span>Graphics</span><b id="sGraphics">Medium</b></div>
+        <div><span>Sensitivity</span><b id="sSens">1.00</b></div>
+        <div><span>Flashlight</span><b id="sFlash">1.00</b></div>
+        <div><span>Nightmare Unlocked</span><b id="sNight">No</b></div>
+      </div>
+      <div class="save-actions">
+        <button class="primary" id="exportSaveBtn">Export Save File</button>
+        <button id="importSaveBtn">Import Save File</button>
+        <input type="file" id="importSaveInput" accept="application/json,.json" hidden />
+        <button class="danger" id="resetSaveBtn">Reset Save</button>
+      </div>
+      <p class="hint">Save data is stored locally in your browser and never leaves your device.</p>
+    </div>
+    <button class="back-btn" data-screen="mainMenu">Back</button>
+  </div>
+
+  <!-- ============================ Credits ============================ -->
+  <div id="creditsMenu" class="screen hidden">
+    <h2 class="screen-title">Credits</h2>
+    <div class="credits">
+      <p><b>Silent Entry</b></p>
+      <p>Design &amp; Code &mdash; You (with Claude Code assistance)</p>
+      <p>Engine &mdash; Three.js (MIT)</p>
+      <p>Geometry, lighting, AI and audio cues are 100% procedural.</p>
+      <p>No external assets are loaded. Runs from a local file.</p>
+    </div>
+    <button class="back-btn" data-screen="mainMenu">Back</button>
+  </div>
+
+  <!-- ============================ Pause Menu ============================ -->
+  <div id="pauseMenu" class="screen hidden">
+    <h2 class="screen-title">Paused</h2>
+    <div class="pause-actions">
+      <button class="primary" id="resumeBtn">Resume</button>
+      <button id="pauseSettingsBtn">Settings</button>
+      <button class="danger" id="abortBtn">Abort Mission</button>
+    </div>
+  </div>
+
+  <!-- ============================ Mission End ============================ -->
+  <div id="endScreen" class="screen hidden">
+    <h2 id="endTitle" class="screen-title">Mission Complete</h2>
+    <div id="endStats" class="end-stats"></div>
+    <div class="row-buttons">
+      <button class="primary" id="endReturnBtn">Return to Menu</button>
+      <button id="endRetryBtn">Retry</button>
+    </div>
+  </div>
+
+  <!-- ============================ Loading ============================ -->
+  <div id="loading" class="screen">
+    <div class="loader-ring"></div>
+    <div class="loader-text">INITIALIZING TACTICAL OPS&hellip;</div>
+  </div>
+
+  <!-- ===== Third-party (Three.js + PointerLockControls) over CDN ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+
+  <!-- ===== Game source, ordered by dependency ===== -->
+  <script src="js/save.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
